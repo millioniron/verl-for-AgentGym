@@ -4,6 +4,7 @@
 # 使用方法:
 #   全量测试: bash run_textcraft_eval.sh
 #   指定样本数: MAX_SAMPLES=20 bash run_textcraft_eval.sh
+#   每个任务采样多次: NUM_SAMPLES_PER_TASK=8 bash run_textcraft_eval.sh
 #   使用其他GPU: CUDA_VISIBLE_DEVICES=3 bash run_textcraft_eval.sh
 #
 # ADaPT配置说明:
@@ -22,11 +23,13 @@ DATA_PATH="/Data/wyh/datasets/Verl-Data/eval/textcraft/test.parquet"
 OUTPUT_DIR="/Data/wyh/datasets/Verl-Data/outputs/textcraft_eval"
 TEXTCRAFT_SERVER="http://127.0.0.1:36004"
 MAX_SAMPLES=${MAX_SAMPLES:--1}  # -1 means all samples
+NUM_SAMPLES_PER_TASK=${NUM_SAMPLES_PER_TASK:-1}  # Number of samples per task (default: 1)
 
 echo "评估配置:"
 echo "  模型路径: $MODEL_PATH"
 echo "  GPU: $CUDA_VISIBLE_DEVICES"
 echo "  样本数: $MAX_SAMPLES"
+echo "  每个任务采样次数: $NUM_SAMPLES_PER_TASK"
 echo ""
 
 # ADaPT风格参数配置
@@ -70,6 +73,7 @@ python examples/sglang_multiturn/my_exp/eval/eval_textcraft_qwen3_1.7b.py \
     --output_dir "$OUTPUT_DIR" \
     --textcraft_server "$TEXTCRAFT_SERVER" \
     --max_samples "$MAX_SAMPLES" \
+    --num_samples_per_task "$NUM_SAMPLES_PER_TASK" \
     --max_rounds 40 \
     --max_length 8192 \
     --max_new_tokens "$MAX_NEW_TOKENS" \
