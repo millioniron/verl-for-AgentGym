@@ -396,6 +396,10 @@ async def main():
     table = pq.read_table(args.data_path)
     df = table.to_pandas()
     
+    # 使用固定随机种子进行 shuffle，确保每次测试的任务顺序相同
+    df = df.sample(frac=1, random_state=args.seed).reset_index(drop=True)
+    logger.info(f"Data shuffled with seed={args.seed}")
+    
     if args.max_samples > 0:  # -1表示全部，不截取
         df = df.head(args.max_samples)
     
