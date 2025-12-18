@@ -418,12 +418,9 @@ async def main():
     task_stats = []  # 记录每个任务的统计信息
     
     for idx, row in tqdm(df.iterrows(), total=len(df), desc="Evaluating"):
-        extra_info = row.get('extra_info', {})
-        if isinstance(extra_info, dict):
-            interaction_kwargs = extra_info.get('interaction_kwargs', {})
-            session_id = interaction_kwargs.get('session_id', idx)
-        else:
-            session_id = idx
+        # 使用 idx 作为 session_id，确保 shuffle 后每次采样的任务一致
+        # 注意：不再使用 extra_info 中的 session_id，因为 shuffle 会打乱原始顺序
+        session_id = idx
         
         logger.info(f"\n{'=' * 80}")
         logger.info(f"Task {idx + 1}/{len(df)} - Session {session_id}")
