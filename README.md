@@ -131,15 +131,29 @@ cd AgentGym
 #### TextCraft 环境评估（Transformers 后端）
 
 ```bash
+# 单次采样
 cd /Data/wyh/verl/examples/sglang_multiturn/my_exp/eval
 bash run_textcraft_eval.sh
+
+# 多次采样（8次）
+NUM_SAMPLES_PER_TASK=8 bash run_textcraft_eval.sh
+
+# 小规模测试
+MAX_SAMPLES=10 NUM_SAMPLES_PER_TASK=8 bash run_textcraft_eval.sh
 ```
 
 #### TextCraft 环境评估（vLLM 后端，更快）
 
 ```bash
+# 单次采样
 cd /Data/wyh/verl/examples/sglang_multiturn/my_exp/eval
 bash run_textcraft_eval_vllm.sh
+
+# 多次采样（8次）
+NUM_SAMPLES_PER_TASK=8 bash run_textcraft_eval_vllm.sh
+
+# 小规模测试
+MAX_SAMPLES=10 NUM_SAMPLES_PER_TASK=8 bash run_textcraft_eval_vllm.sh
 ```
 
 #### 批量评估所有模型和检查点
