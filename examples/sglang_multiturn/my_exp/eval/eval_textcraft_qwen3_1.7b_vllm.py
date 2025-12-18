@@ -169,42 +169,71 @@ async def evaluate_one_episode(
     agent: SimpleTextCraftAgent,
     interaction: TextCraftInteraction,
     session_id: int,
-    max_rounds: int = 50
+    max_rounds: int = 50,
+    initial_prompt: str = None
 ) -> Dict[str, Any]:
-    """评估一个episode"""
+    """评估一个episode
+    
+    Args:
+        initial_prompt: 如果提供，则使用此固定prompt而不是从AgentGym获取新任务
+                       这确保多次采样使用相同的任务
+    """
     instance_id = f"eval_{session_id}"
     messages = []
     conversations = []
     done = False
     total_reward = 0.0  # 累积reward
     
-    try:
-        await interaction.start_interaction(instance_id, session_id=session_id)
-    except Exception as e:
-        logger.error(f"Failed to start interaction for session {session_id}: {e}")
-        return {
-            "session_id": session_id,
-            "reward": 0.0,
-            "success": False,
-            "num_turns": 0,
-            "conversations": []
-        }
-    
-    try:
-        done, initial_obs, reward, extra = await interaction.generate_response(instance_id, messages)
-        total_reward += reward  # 累积初始reward
-        messages.append({"role": "user", "content": initial_obs})
-        conversations.append({"role": "user", "content": initial_obs})
-    except Exception as e:
-        logger.error(f"Failed to get initial observation: {e}")
-        await interaction.finalize_interaction(instance_id)
-        return {
-            "session_id": session_id,
-            "reward": 0.0,
-            "success": False,
-            "num_turns": 0,
-            "conversations": []
-        }
+    if initial_prompt is None:
+        # 第一次采样：从AgentGym获取新任务
+        try:
+            await interaction.start_interaction(instance_id, session_id=session_id)
+        except Exception as e:
+            logger.error(f"Failed to start interaction for session {session_id}: {e}")
+            return {
+                "session_id": session_id,
+                "reward": 0.0,
+                "success": False,
+                "num_turns": 0,
+                "conversations": [],
+                "initial_prompt": None
+            }
+        
+        try:
+            done, initial_obs, reward, extra = await interaction.generate_response(instance_id, messages)
+            total_reward += reward  # 累积初始reward
+            messages.append({"role": "user", "content": initial_obs})
+            conversations.append({"role": "user", "content": initial_obs})
+            initial_prompt = initial_obs  # 保存初始prompt供后续采样使用
+        except Exception as e:
+            logger.error(f"Failed to get initial observation: {e}")
+            await interaction.finalize_interaction(instance_id)
+            return {
+                "session_id": session_id,
+                "reward": 0.0,
+                "success": False,
+                "num_turns": 0,
+                "conversations": [],
+                "initial_prompt": None
+            }
+    else:
+        # 后续采样：使用缓存的初始prompt
+        try:
+            await interaction.start_interaction(instance_id, session_id=session_id)
+        except Exception as e:
+            logger.error(f"Failed to start interaction for session {session_id}: {e}")
+            return {
+                "session_id": session_id,
+                "reward": 0.0,
+                "success": False,
+                "num_turns": 0,
+                "conversations": [],
+                "initial_prompt": initial_prompt
+            }
+        
+        # 直接使用缓存的prompt，不调用generate_response
+        messages.append({"role": "user", "content": initial_prompt})
+        conversations.append({"role": "user", "content": initial_prompt})
     
     # === 验证：打印首轮完整prompt ===
     if session_id == 0:
@@ -277,7 +306,8 @@ async def evaluate_one_episode(
         "reward": total_reward,
         "success": success,
         "num_turns": num_turns,
-        "conversations": conversations
+        "conversations": conversations,
+        "initial_prompt": initial_prompt
     }
 
 
@@ -422,6 +452,8 @@ async def main():
         
         # 对同一个任务采样多次
         task_results = []
+        cached_initial_prompt = None  # 缓存第一次采样的初始prompt
+        
         for sample_idx in range(args.num_samples_per_task):
             if args.num_samples_per_task > 1:
                 logger.info(f"\n--- Sample {sample_idx + 1}/{args.num_samples_per_task} ---")
@@ -431,8 +463,15 @@ async def main():
                     agent=agent,
                     interaction=interaction,
                     session_id=session_id,
-                    max_rounds=args.max_rounds
+                    max_rounds=args.max_rounds,
+                    initial_prompt=cached_initial_prompt  # 第一次为None，后续使用缓存
                 )
+                
+                # 第一次采样后，缓存初始prompt供后续使用
+                if sample_idx == 0 and result.get('initial_prompt'):
+                    cached_initial_prompt = result['initial_prompt']
+                    if args.num_samples_per_task > 1:
+                        logger.info(f"Cached initial prompt for subsequent samples (Goal: {cached_initial_prompt.split('Goal: ')[1].split('.')[0] if 'Goal: ' in cached_initial_prompt else 'N/A'})")
                 
                 task_results.append(result)
                 results.append(result)
